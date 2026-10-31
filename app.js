@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = window.FORMA_CONFIG?.supabaseUrl || '';
 const SUPABASE_ANON_KEY = window.FORMA_CONFIG?.supabaseAnonKey || '';
 const API_BASE = (window.FORMA_CONFIG?.apiBaseUrl || '').replace(/\/$/, '');
-const sb = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const sb = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }) : null;
 const $ = (id) => document.getElementById(id);
 const navMenu = document.querySelector('.nav nav');
 const menuButton = document.querySelector('.menu-button');
@@ -81,7 +81,39 @@ $('browseFile').addEventListener('click',()=>input.click()); drop.addEventListen
 input.addEventListener('change',()=>chooseFile(input.files[0]));
 drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('dragover')}); drop.addEventListener('dragleave',()=>drop.classList.remove('dragover')); drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('dragover');chooseFile(e.dataTransfer.files[0])});
 $('openLogin').addEventListener('click',()=> $('loginDialog').showModal());
-$('loginSubmit').addEventListener('click',async e=>{e.preventDefault(); if(!sb)return showMessage('loginMessage','La aplicación necesita configuración de Supabase.',true); const email=$('loginEmail').value.trim(); if(!email)return; const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin}}); showMessage('loginMessage',error?error.message:'Revisa tu correo: te enviamos un enlace seguro para ingresar.',!!error);});
+$('passwordLogin').addEventListener('click',async()=>{
+  if(!sb)return showMessage('loginMessage','La aplicación necesita configuración de Supabase.',true);
+  const email=$('loginEmail').value.trim(),password=$('loginPassword').value;
+  if(!email||!password)return showMessage('loginMessage','Escribe tu correo y contraseña.',true);
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  if(error)return showMessage('loginMessage','No se pudo iniciar sesión. Revisa el correo y la contraseña.',true);
+  $('loginDialog').close(); await renderAdmin();
+});
+$('resetPasswordButton').addEventListener('click',async()=>{
+  if(!sb)return showMessage('loginMessage','La aplicación necesita configuración de Supabase.',true);
+  const email=$('loginEmail').value.trim();
+  if(!email)return showMessage('loginMessage','Escribe tu correo para enviarte el enlace de contraseña.',true);
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin});
+  showMessage('loginMessage',error?error.message:'Si existe una cuenta con ese correo, recibirás un enlace para establecer o recuperar tu contraseña.');
+});
+$('loginSubmit').addEventListener('click',async()=>{
+  if(!sb)return showMessage('loginMessage','La aplicación necesita configuración de Supabase.',true);
+  const email=$('loginEmail').value.trim();
+  if(!email)return showMessage('loginMessage','Escribe tu correo para enviarte un enlace de acceso.',true);
+  const {error}=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin}});
+  showMessage('loginMessage',error?error.message:'Revisa tu correo: te enviamos un enlace seguro para ingresar.',!!error);
+});
+$('saveNewPassword').addEventListener('click',async()=>{
+  if(!sb)return showMessage('recoveryMessage','La aplicación necesita configuración de Supabase.',true);
+  const password=$('newPassword').value;
+  if(password.length<8)return showMessage('recoveryMessage','La contraseña debe tener al menos 8 caracteres.',true);
+  const {error}=await sb.auth.updateUser({password});
+  if(error)return showMessage('recoveryMessage',error.message,true);
+  $('recoveryDialog').close(); $('newPassword').value='';
+  $('loginDialog').showModal();
+  showMessage('loginMessage','Contraseña guardada. Ya puedes entrar con tu correo y contraseña.');
+  await renderAdmin();
+});
 $('submitOrder').addEventListener('click',async()=>{
   const first=$('firstName').value.trim(),last=$('lastName').value.trim(),email=$('email').value.trim(),phone=$('phone').value.trim();
   if(!first||!last||!email||!phone||!selectedFile) return showMessage('formMessage','Completa tus datos y elige un archivo STL.',true);
@@ -105,4 +137,7 @@ async function renderAdmin(){
   await load(); panel.querySelector('#adminRefresh').onclick=load;
 }
 function escapeHtml(s=''){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-if(sb){sb.auth.onAuthStateChange((event,session)=>{if(session?.user){setTimeout(()=>{finishPendingOrder(session.user);renderAdmin();},0);}});renderAdmin();}
+if(sb){sb.auth.onAuthStateChange((event,session)=>{
+  if(event==='PASSWORD_RECOVERY')setTimeout(()=>{const dialog=$('recoveryDialog');if(dialog&&!dialog.open)dialog.showModal();},0);
+  if(session?.user)setTimeout(()=>{finishPendingOrder(session.user);renderAdmin();},0);
+});renderAdmin();}
