@@ -1,5 +1,4 @@
 {
   "version": 2,
-  "functions": { "api/*.js": { "runtime": "nodejs20.x" } },
-  "rewrites": [{ "source": "/(.*)", "destination": "/$1" }]
+  "functions": { "api/*.js": { "runtime": "nodejs20.x" } }
 }
