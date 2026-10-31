@@ -1,16 +1,20 @@
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const origin = req.headers.origin;
-  const allowedOrigin = process.env.API_ALLOWED_ORIGIN;
-  if (allowedOrigin && origin === allowedOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  const allowedOrigins = (process.env.API_ALLOWED_ORIGIN || '')
+    .split(',')
+    .map(value => value.trim())
+    .filter(Boolean);
+  const originAllowed = !allowedOrigins.length || allowedOrigins.includes(origin);
+  if (origin && originAllowed) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     res.setHeader('Access-Control-Allow-Methods', 'GET, PATCH, OPTIONS');
   }
   if (req.method === 'OPTIONS') return res.status(204).end();
-  if (allowedOrigin && origin && origin !== allowedOrigin) return res.status(403).json({ error: 'Origen no permitido.' });
-  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (origin && !originAllowed) return res.status(403).json({ error: 'Origen no permitido.' });
+  const token = (req.headers.authorization || '').replace(/^Bearer\\s+/i, '');
   if (!token) return res.status(401).json({ error: 'Inicia sesión para continuar.' });
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_ANON_KEY;
