@@ -28,6 +28,8 @@ export default async function handler(req, res) {
   if (profiles[0]?.role !== 'admin') return res.status(403).json({ error: 'Acceso solo para administración.' });
 
   if (req.method === 'GET') {
+    const settingsResponse = await fetch(`${url}/rest/v1/admin_settings?select=filament_cost_per_meter,machine_cost_per_minute,minimum_gross_margin,costs_configured&id=eq.true`, { headers });
+    const settings = settingsResponse.ok ? (await settingsResponse.json())[0] : null;
     const orderResponse = await fetch(`${url}/rest/v1/orders?select=id,created_at,file_path,file_name,filament_m,time_minutes,estimated_price,status,profiles(first_name,last_name,email,phone)&order=created_at.asc`, { headers });
     if (!orderResponse.ok) return res.status(400).json({ error: await orderResponse.text() });
     const orders = await orderResponse.json();
@@ -35,9 +37,36 @@ export default async function handler(req, res) {
       const objectPath = order.file_path.split('/').map(encodeURIComponent).join('/');
       const signed = await fetch(`${url}/storage/v1/object/sign/stl-files/${objectPath}`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ expiresIn: 60 }) });
       const payload = signed.ok ? await signed.json() : {};
-      return { ...order, download_url: payload.signedURL ? `${url}/storage/v1${payload.signedURL}` : null };
+      const directCost = settings?.costs_configured ? Number(order.filament_m) * Number(settings.filament_cost_per_meter) + Number(order.time_minutes) * Number(settings.machine_cost_per_minute) : null;
+      const revenue = Number(order.estimated_price);
+      return { ...order, download_url: payload.signedURL ? `${url}/storage/v1${payload.signedURL}` : null, direct_cost: directCost, estimated_gain: directCost == null ? null : revenue - directCost, gross_margin: directCost == null || !revenue ? null : (revenue - directCost) / revenue };
     }));
-    return res.status(200).json({ orders: result });
+    const generationsResponse = await fetch(`${url}/rest/v1/ange_generations?select=id,user_id,prompt,task_kind,created_at,filament_m,time_minutes,estimated_price,volume_cm3,provider_task_id,stl_path&order=created_at.desc&limit=50`, { headers });
+    const generations = generationsResponse.ok ? await generationsResponse.json() : [];
+    let profileById = {};
+    if (generations.length) {
+      const ids = [...new Set(generations.map(item => item.user_id))];
+      const profilesResponse = await fetch(`${url}/rest/v1/profiles?select=id,first_name,last_name,email,phone&id=in.(${ids.join(',')})`, { headers });
+      if (profilesResponse.ok) profileById = Object.fromEntries((await profilesResponse.json()).map(profile => [profile.id, profile]));
+    }
+    const aiModels = await Promise.all(generations.map(async item => {
+      let model_urls = {};
+      let model_status = 'UNKNOWN';
+      if (item.stl_path) {
+        const signed = await fetch(`${url}/storage/v1/object/sign/stl-files/${item.stl_path.split('/').map(encodeURIComponent).join('/')}`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ expiresIn: 3600 }) });
+        const signedBody = signed.ok ? await signed.json() : {};
+        if (signedBody.signedURL) model_urls.stl = `${url}/storage/v1${signedBody.signedURL}`;
+        model_status = 'ARCHIVED';
+      } else if (process.env.MESHY_API_KEY) {
+        const version = item.task_kind === 'image' ? 'v1' : 'v2';
+        const response = await fetch(`https://api.meshy.ai/openapi/${version}/${item.task_kind === 'image' ? 'image-to-3d' : 'text-to-3d'}/${encodeURIComponent(item.provider_task_id)}`, { headers: { Authorization: `Bearer ${process.env.MESHY_API_KEY}` } });
+        if (response.ok) { const task = await response.json(); model_urls = task.model_urls || {}; model_status = task.status || model_status; }
+      }
+      const revenue = Number(item.estimated_price || 0);
+      const directCost = settings?.costs_configured && item.filament_m != null && item.time_minutes != null ? Number(item.filament_m) * Number(settings.filament_cost_per_meter) + Number(item.time_minutes) * Number(settings.machine_cost_per_minute) : null;
+      return { ...item, customer: profileById[item.user_id] || {}, model_urls, model_status, direct_cost: directCost, estimated_gain: directCost == null ? null : revenue - directCost, gross_margin: directCost == null || !revenue ? null : (revenue - directCost) / revenue };
+    }));
+    return res.status(200).json({ orders: result, ai_models: aiModels, pricing: settings || { costs_configured: false, filament_cost_per_meter: 0, machine_cost_per_minute: 0, minimum_gross_margin: 0.4 } });
   }
 
   if (req.method === 'PATCH') {
