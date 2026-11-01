@@ -10,14 +10,51 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/ange.css" />
 </head>
 <body>
   <div class="announcement"><span class="status-dot"></span> Impresión local · Hecho en Perú <span class="announce-right">CREALITY K2 COMBO <span class="arrow">↗</span></span></div>
-  <header class="nav"><a class="brand" href="#inicio"><span class="brand-mark">f.</span><span>forma<span class="brand-period">.</span></span></a><nav><a href="#proceso">Cómo funciona</a><a href="#materiales">Materiales</a><a href="#faq">Preguntas</a></nav><button class="nav-cta" id="openLogin">Mi cuenta <span>↗</span></button><button class="menu-button" aria-label="Abrir menú">☰</button></header>
+  <header class="nav"><a class="brand" href="#inicio"><span class="brand-mark">f.</span><span>forma<span class="brand-period">.</span></span></a><nav><a href="#ange">Ange AI</a><a href="#proceso">Cómo funciona</a><a href="#materiales">Materiales</a><a href="#faq">Preguntas</a></nav><button class="nav-cta" id="openLogin">Mi cuenta <span>↗</span></button><button class="menu-button" aria-label="Abrir menú">☰</button></header>
   <main>
     <section class="hero" id="inicio">
       <div class="hero-copy"><div class="eyebrow"><span>01 / IMPRESIÓN BAJO DEMANDA</span><span class="eyebrow-line"></span></div><h1>Ideas que<br>toman <em>forma.</em></h1><p class="hero-sub">Del archivo a tus manos. Sube tu modelo 3D y recibe una cotización transparente, sin vueltas.</p><div class="hero-actions"><a href="#cotizar" class="button button-dark">Cotiza tu impresión <span>↘</span></a><a href="#proceso" class="text-link">Así de fácil <span>↗</span></a></div><div class="hero-proof"><div class="avatar-stack"><i>●</i><i>●</i><i>●</i><i>●</i></div><span>Precisión en cada capa<br><b>Calidad que se nota</b></span><span class="proof-star">✳</span></div></div>
       <div class="hero-art"><div class="art-grid"></div><div class="art-number">FIG. 01 — OBJETO EN PROCESO</div><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="art-shape"><div class="shape-top"></div><div class="shape-face face-a"></div><div class="shape-face face-b"></div><div class="shape-inner"></div><div class="shape-shadow"></div></div><div class="art-label label-top"><span class="label-dot"></span> PLA · NEGRO MATE</div><div class="art-label label-bottom">CAPA 084 / 320 <span>0.20 MM</span></div><div class="art-side-note">FDM / 01</div></div>
+    </section>
+<section class="ange-section" id="ange">
+      <div class="ange-intro">
+        <div class="eyebrow"><span>02 / ESTUDIO 3D GENERATIVO</span><span class="eyebrow-line"></span></div>
+        <div class="ange-wordmark"><span class="ange-orbit">✳</span> ANGE <span class="ange-ai-tag">AI</span></div>
+        <h2>De una idea<br>a algo <em>real.</em></h2>
+        <p>Describe lo que imaginas o sube una imagen. Ange prepara un modelo 3D para que lo revises y descargues listo para llevar a tu laminador.</p>
+        <div class="ange-capabilities"><span>✳ Texto a modelo 3D</span><span>↥ Imagen a modelo 3D</span><span>↓ Exportación STL</span></div>
+        <div class="ange-disclaimer"><span>ⓘ</span><p>La generación usa créditos de Meshy. Los modelos son una propuesta inicial: revisa tamaño, soportes y calidad en Creality Print o Cura antes de imprimir.</p></div>
+      </div>
+      <div class="ange-studio">
+        <div class="ange-studio-top"><span><i class="ange-status-dot"></i> ANGE / MODEL STUDIO</span><span class="ange-version">BETA · 01</span></div>
+        <div class="ange-tabs" role="tablist" aria-label="Método de creación">
+          <button class="ange-tab active" type="button" role="tab" aria-selected="true" data-ange-mode="text">✎ <span>Desde texto</span></button>
+          <button class="ange-tab" type="button" role="tab" aria-selected="false" data-ange-mode="image">▧ <span>Desde imagen</span></button>
+        </div>
+        <label class="ange-field-label" for="angePrompt">¿Qué quieres crear?</label>
+        <textarea id="angePrompt" maxlength="600" placeholder="Ej. Un soporte minimalista para audífonos, con base circular y líneas suaves…"></textarea>
+        <div class="ange-prompt-footer"><span>Describe la forma, el uso y los detalles importantes.</span><span id="angePromptCount">0 / 600</span></div>
+        <div class="ange-image-field" id="angeImageField" hidden>
+          <input id="angeImageInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+          <button id="angeChooseImage" class="ange-image-pick" type="button"><span>＋</span><span><b>Elige una imagen de referencia</b><small>PNG, JPG o WebP · hasta 2.5 MB</small></span><span class="ange-image-arrow">↗</span></button>
+          <div id="angeImagePreview" class="ange-image-preview" hidden></div>
+        </div>
+        <div class="ange-options"><span>GEOMETRÍA PARA IMPRESIÓN</span><span>STL + GLB</span></div>
+        <button id="angeGenerate" class="ange-generate" type="button"><span>Generar modelo</span><span>↗</span></button>
+        <p class="ange-cost-note">Aprox. 20 créditos de Meshy por modelo, según tarifas vigentes. Máximo 3 por cuenta cada 24 h.</p>
+        <div id="angeMessage" class="ange-message" role="status" aria-live="polite"></div>
+        <div id="angeProgress" class="ange-progress" hidden><div class="ange-progress-line"><span id="angeProgressTitle">Preparando tu modelo…</span><span id="angeProgressPercent">—</span></div><div class="ange-progress-track"><span></span></div><small id="angeProgressHint">Puedes dejar esta pestaña abierta mientras Ange trabaja.</small></div>
+        <div id="angeResult" class="ange-result" hidden>
+          <div class="ange-result-heading"><span>MODELO LISTO</span><span id="angeResultStatus">STL DISPONIBLE</span></div>
+          <div class="ange-result-preview"><model-viewer id="angeViewer" camera-controls auto-rotate shadow-intensity="0.8" exposure="1" alt="Vista previa del modelo 3D generado por Ange"></model-viewer></div>
+          <div class="ange-downloads"><a id="angeDownloadStl" class="ange-download" href="#" target="_blank" rel="noopener">Descargar STL <span>↓</span></a><a id="angeDownloadGlb" class="ange-download secondary" href="#" target="_blank" rel="noopener">Descargar GLB <span>↓</span></a></div>
+          <small class="ange-result-note">El enlace de descarga puede caducar. Guarda tu archivo en cuanto esté listo.</small>
+        </div>
+      </div>
     </section>
     <section class="ticker"><div class="ticker-track"><span>DISEÑO A TU MEDIDA</span><b>✳</b><span>PRECISIÓN EN CADA CAPA</span><b>✳</b><span>MENOS DESECHO, MÁS IDEAS</span><b>✳</b><span>HECHO EN PERÚ</span><b>✳</b><span>DISEÑO A TU MEDIDA</span><b>✳</b><span>PRECISIÓN EN CADA CAPA</span><b>✳</b><span>MENOS DESECHO, MÁS IDEAS</span><b>✳</b></div></section>
     <section class="quote-section" id="cotizar"><div class="section-heading"><div class="eyebrow"><span>02 / EMPIEZA TU PROYECTO</span><span class="eyebrow-line"></span></div><h2>Tu idea merece<br>una <em>prueba.</em></h2><p>Cuéntanos qué necesitas. Revisamos tu archivo y te enviamos una cotización clara antes de imprimir.</p><div class="quote-note"><span class="note-icon">↳</span> Aceptamos archivos .STL de hasta 50 MB.<br><span>Sin archivo listo todavía? Escríbenos.</span></div></div>
@@ -33,5 +70,6 @@
   <dialog id="recoveryDialog"><form method="dialog"><button class="dialog-close" aria-label="Cerrar">×</button><span class="dialog-kicker">FORMA / NUEVA CONTRASEÑA</span><h2>Elige tu <em>clave.</em></h2><p>Después podrás entrar con tu correo y contraseña sin volver a abrir el correo en este navegador.</p><label class="full-label">NUEVA CONTRASEÑA<input id="newPassword" type="password" autocomplete="new-password" minlength="8" required></label><button id="saveNewPassword" type="button" class="button button-dark submit-button">Guardar contraseña <span>↗</span></button><div id="recoveryMessage" class="form-message" role="status"></div></form></dialog>
   <script src="/config.js"></script>
   <script type="module" src="/app.js"></script>
+  <script type="module" src="/ange.js"></script>
 </body>
 </html>
