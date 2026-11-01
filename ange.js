@@ -103,7 +103,7 @@ function showResult(task, generationId) {
   $('angeProgress').hidden = true;
   $('angeResult').dataset.generationId = generationId;
   const estimate = task.estimate;
-  const quoteReady = estimate && Number.isFinite(Number(estimate.estimated_price));
+  const quoteReady = estimate && estimate.estimated_price != null && Number.isFinite(Number(estimate.estimated_price));
   $('angePrintEstimate').hidden = !estimate;
   $('angeRequestPrint').hidden = !quoteReady;
   if (estimate) {
