@@ -24,6 +24,12 @@ El analizador lee STL ASCII o binario y calcula volumen de malla cerrada con el 
 
 Render alojará la interfaz en `https://<nombre>.onrender.com`. Vercel alojará la API en `https://<proyecto>.vercel.app`. El esquema Supabase y su clave pública ya están listos; faltan los despliegues y configurar sus dominios de Auth. Render necesita un repositorio GitHub conectado como fuente.
 
+## Ange AI
+
+Ange usa la API oficial de Meshy para generar modelos 3D desde texto o una imagen y solicita archivos STL y GLB. La clave de Meshy se configura únicamente como variable secreta `MESHY_API_KEY` en Vercel; nunca debe incluirse en `config.js`, el navegador o GitHub. La API requiere que el visitante inicie sesión con Supabase y limita cada cuenta a 3 generaciones por cada 24 horas. Los modelos estándar cuestan actualmente alrededor de 20 créditos por generación según la tarifa de Meshy; consulta la tarifa vigente antes de activar la clave.
+
+La tabla protegida `public.ange_generations` conserva el propietario y el identificador de cada tarea. El archivo `supabase/ange.sql` contiene su esquema y políticas RLS. Las URLs de los modelos se entregan por Meshy y pueden caducar, por lo que el usuario debe descargar su STL cuando termine. El STL requiere revisión en Creality Print o Cura antes de imprimir.
+
 ## Límites
 
 El pedido queda pendiente de revisión manual; no sustituye el laminador/slicer, no determina si el objeto cabe en la máquina, no detecta geometrías no imprimibles ni calcula entrega/envío. Para cobrar de verdad, añade una aceptación explícita del precio y una pasarela de pago antes de iniciar producción.
