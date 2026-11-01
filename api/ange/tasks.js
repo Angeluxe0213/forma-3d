@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     });
     if (!providerResponse.ok) return res.status(502).json({ error: 'ANGELUXE no pudo consultar el estado en este momento.' });
     const task = await providerResponse.json();
-    let estimate = row.stl_path && row.estimated_price != null ? { filament_m: Number(row.filament_m), time_minutes: Number(row.time_minutes), estimated_price: Number(row.estimated_price), volume_cm3: Number(row.volume_cm3) } : null;
+    let estimate = row.stl_path ? { filament_m: Number(row.filament_m), time_minutes: Number(row.time_minutes), estimated_price: row.estimated_price == null ? null : Number(row.estimated_price), volume_cm3: Number(row.volume_cm3) } : null;
     if (task.status === 'SUCCEEDED' && task.model_urls?.stl) {
       try {
         if (!row.stl_path) {
