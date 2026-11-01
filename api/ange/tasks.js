@@ -1,6 +1,7 @@
 import { applyCors, requireUser, userHeaders } from '../../lib/ange.js';
+import { estimateFromStlBuffer } from '../../lib/stl-estimate.js';
 
-const MAX_DAILY_GENERATIONS = 3;
+const MAX_DAILY_GENERATIONS = 15;
 const MAX_IMAGE_DATA_CHARS = 3_600_000;
 
 export default async function handler(req, res) {
@@ -18,7 +19,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const id = req.query?.id;
     if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ error: 'Solicitud de modelo inválida.' });
-    const rowResponse = await fetch(`${context.url}/rest/v1/ange_generations?id=eq.${encodeURIComponent(id)}&select=id,task_kind,provider_task_id`, {
+    const rowResponse = await fetch(`${context.url}/rest/v1/ange_generations?id=eq.${encodeURIComponent(id)}&select=id,task_kind,provider_task_id,stl_path,filament_m,time_minutes,estimated_price,volume_cm3`, {
       headers: userHeaders(context)
     });
     if (!rowResponse.ok) return res.status(502).json({ error: 'No se pudo consultar tu modelo.' });
@@ -32,20 +33,42 @@ export default async function handler(req, res) {
     const providerResponse = await fetch(endpoint, {
       headers: { Authorization: `Bearer ${process.env.MESHY_API_KEY}` }
     });
-    if (!providerResponse.ok) return res.status(502).json({ error: 'Ange no pudo consultar el estado en este momento.' });
+    if (!providerResponse.ok) return res.status(502).json({ error: 'ANGELUXE no pudo consultar el estado en este momento.' });
     const task = await providerResponse.json();
+    let estimate = row.stl_path && row.estimated_price != null ? { filament_m: Number(row.filament_m), time_minutes: Number(row.time_minutes), estimated_price: Number(row.estimated_price), volume_cm3: Number(row.volume_cm3) } : null;
+    if (task.status === 'SUCCEEDED' && task.model_urls?.stl) {
+      try {
+        if (!row.stl_path) {
+          const stlResponse = await fetch(task.model_urls.stl);
+          if (!stlResponse.ok) throw new Error('STL download failed');
+          const stl = Buffer.from(await stlResponse.arrayBuffer());
+          estimate = estimateFromStlBuffer(stl);
+          const quote = await fetch(`${context.url}/rest/v1/rpc/quote_printing`, { method: 'POST', headers: userHeaders(context, { 'Content-Type': 'application/json' }), body: JSON.stringify({ p_filament_m: estimate.filament_m, p_time_minutes: estimate.time_minutes }) });
+          if (quote.ok) estimate.estimated_price = Number(await quote.json());
+          const stlPath = `${context.user.id}/angeluxe-${id}.stl`;
+          const upload = await fetch(`${context.url}/storage/v1/object/stl-files/${stlPath.split('/').map(encodeURIComponent).join('/')}`, { method: 'POST', headers: userHeaders(context, { 'Content-Type': 'model/stl', 'x-upsert': 'false' }), body: stl });
+          if (!upload.ok) throw new Error('STL archive failed');
+          estimate.stl_path = stlPath;
+          await fetch(`${context.url}/rest/v1/ange_generations?id=eq.${encodeURIComponent(id)}`, { method: 'PATCH', headers: userHeaders(context, { 'Content-Type': 'application/json', Prefer: 'return=minimal' }), body: JSON.stringify(estimate) });
+        }
+        const signed = await fetch(`${context.url}/storage/v1/object/sign/stl-files/${row.stl_path || `${context.user.id}/angeluxe-${id}.stl`}`, { method: 'POST', headers: userHeaders(context, { 'Content-Type': 'application/json' }), body: JSON.stringify({ expiresIn: 3600 }) });
+        const signedBody = signed.ok ? await signed.json() : {};
+        if (signedBody.signedURL) task.model_urls.stl = `${context.url}/storage/v1${signedBody.signedURL}`;
+      } catch { /* Generation remains downloadable even if estimate analysis is unavailable. */ }
+    }
     return res.status(200).json({
       task: {
         status: task.status || 'PENDING',
         progress: Number.isFinite(Number(task.progress)) ? Number(task.progress) : null,
         message: task.task_error?.message || task.message || '',
-        model_urls: { stl: task.model_urls?.stl || '', glb: task.model_urls?.glb || '' }
+        model_urls: { stl: task.model_urls?.stl || '', glb: task.model_urls?.glb || '' },
+        estimate
       }
     });
   }
 
   const apiKey = process.env.MESHY_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'Ange se está preparando. Aún falta conectar su servicio de generación.' });
+  if (!apiKey) return res.status(503).json({ error: 'ANGELUXE se está preparando. Aún falta conectar su clave privada de Meshy en Vercel.' });
   const { mode, prompt, imageData } = req.body || {};
   const cleanPrompt = typeof prompt === 'string' ? prompt.trim().slice(0, 600) : '';
   if (!['text', 'image'].includes(mode)) return res.status(400).json({ error: 'Elige generar desde texto o desde imagen.' });
@@ -60,7 +83,7 @@ export default async function handler(req, res) {
   });
   if (!countResponse.ok) return res.status(503).json({ error: 'No se pudo verificar el límite diario. Inténtalo más tarde.' });
   const recent = await countResponse.json();
-  if (recent.length >= MAX_DAILY_GENERATIONS) return res.status(429).json({ error: 'Alcanzaste el límite de 3 generaciones en 24 horas para tu cuenta.' });
+  if (recent.length >= MAX_DAILY_GENERATIONS) return res.status(429).json({ error: 'Alcanzaste el límite de 15 modelos separados en 24 horas para tu cuenta.' });
 
   const endpoint = mode === 'image'
     ? 'https://api.meshy.ai/openapi/v1/image-to-3d'
@@ -76,7 +99,7 @@ export default async function handler(req, res) {
   const generatedBody = await generated.json().catch(() => ({}));
   if (!generated.ok || !generatedBody.result) {
     const status = generated.status === 429 ? 429 : 502;
-    return res.status(status).json({ error: generated.status === 429 ? 'El servicio de modelos está ocupado o alcanzó su límite de créditos.' : 'Meshy no pudo iniciar esta generación. Revisa la descripción e inténtalo más tarde.' });
+    return res.status(status).json({ error: generated.status === 429 ? 'El servicio de modelos está ocupado o alcanzó su límite de créditos.' : 'ANGELUXE no pudo iniciar esta generación. Revisa la descripción e inténtalo más tarde.' });
   }
 
   const recordResponse = await fetch(`${context.url}/rest/v1/ange_generations?select=id`, {
