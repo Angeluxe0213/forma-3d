@@ -103,12 +103,14 @@ function showResult(task, generationId) {
   $('angeProgress').hidden = true;
   $('angeResult').dataset.generationId = generationId;
   const estimate = task.estimate;
+  const quoteReady = estimate && Number.isFinite(Number(estimate.estimated_price));
   $('angePrintEstimate').hidden = !estimate;
-  $('angeRequestPrint').hidden = !estimate;
+  $('angeRequestPrint').hidden = !quoteReady;
   if (estimate) {
     $('angeFilament').textContent = `${Number(estimate.filament_m).toFixed(2)} m`;
     $('angePrintTime').textContent = prettyTime(Number(estimate.time_minutes));
-    $('angePrice').textContent = `S/ ${Number(estimate.estimated_price).toFixed(2)}`;
+    $('angePrice').textContent = quoteReady ? `S/ ${Number(estimate.estimated_price).toFixed(2)}` : 'Cotización pendiente';
+    if (!quoteReady) message('Tu modelo está listo. El administrador debe configurar sus costos reales para confirmar el precio de impresión.');
   }
 }
 
@@ -217,13 +219,6 @@ if (supabase) {
     if (!first || !last || !phone || !email) return loginMessage('Completa nombre, apellido, teléfono y correo para registrarte.', true);
     const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true, data: { first_name: first, last_name: last, phone }, emailRedirectTo: location.origin } });
     loginMessage(error ? error.message : 'Te enviamos un enlace de confirmación. Ábrelo desde este dispositivo para activar tu cuenta.', !!error);
-  });
-  $('loginSubmit').addEventListener('click', async event => {
-    event.preventDefault();
-    const email = $('loginEmail').value.trim();
-    if (!email) return;
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: location.origin } });
-    loginMessage(error ? error.message : 'Revisa tu correo: te enviamos un enlace para iniciar sesión.', !!error);
   });
 }
 
